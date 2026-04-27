@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>三模型聊天室 (GPT / Claude / Gemini)</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>三模型聊天室</h1>
+      <p class="hint">一次送出，同步看 GPT、Claude、Gemini 各自回答。</p>
+
+      <section class="models">
+        <div>GPT: <code>{{ openai_model }}</code></div>
+        <div>Claude: <code>{{ anthropic_model }}</code></div>
+        <div>Gemini: <code>{{ gemini_model }}</code></div>
+      </section>
+
+      <label for="prompt">輸入問題</label>
+      <textarea id="prompt" rows="5" placeholder="例如：請用三點比較 FastAPI 與 Flask"></textarea>
+      <button id="askBtn">送出</button>
+
+      <section class="grid">
+        <article>
+          <h2>GPT</h2>
+          <pre id="openai">尚未查詢</pre>
+        </article>
+        <article>
+          <h2>Claude</h2>
+          <pre id="claude">尚未查詢</pre>
+        </article>
+        <article>
+          <h2>Gemini</h2>
+          <pre id="gemini">尚未查詢</pre>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const askBtn = document.getElementById('askBtn');
+      const promptEl = document.getElementById('prompt');
+      const targets = {
+        openai: document.getElementById('openai'),
+        claude: document.getElementById('claude'),
+        gemini: document.getElementById('gemini')
+      };
+
+      function renderResult(target, payload) {
+        if (!payload) {
+          target.textContent = '沒有回傳資料';
+          return;
+        }
+        if (payload.ok) {
+          target.textContent = payload.text || '(空白回覆)';
+        } else {
+          target.textContent = `錯誤：${payload.error || '未知錯誤'}`;
+        }
+      }
+
+      askBtn.addEventListener('click', async () => {
+        const prompt = promptEl.value.trim();
+        if (!prompt) {
+          alert('請先輸入問題');
+          return;
+        }
+
+        askBtn.disabled = true;
+        askBtn.textContent = '查詢中...';
+        Object.values(targets).forEach((el) => (el.textContent = '查詢中...'));
+
+        try {
+          const resp = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+          });
+
+          const data = await resp.json();
+          if (!resp.ok) {
+            throw new Error(data.error || '請求失敗');
+          }
+
+          renderResult(targets.openai, data.openai);
+          renderResult(targets.claude, data.claude);
+          renderResult(targets.gemini, data.gemini);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          Object.values(targets).forEach((el) => (el.textContent = `錯誤：${msg}`));
+        } finally {
+          askBtn.disabled = false;
+          askBtn.textContent = '送出';
+        }
+      });
+    </script>
+  </body>
+</html>
