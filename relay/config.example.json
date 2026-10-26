@@ -1,0 +1,38 @@
+{
+  "project": "netflix-focus",
+  "handoff_threshold_pct": 2.0,
+  "poll_seconds": 60,
+  "autostart": false,
+
+  "task": {
+    "title": "Netflix 白框移動修復",
+    "goal": "用前鏡頭實拍驗證 B9 上 Netflix 白框：首頁與字幕/集數選單的閃爍與跟框延遲，再回歸略過介紹與長按快轉",
+    "repo": "~/path/to/netflix-project",
+    "branch": "main"
+  },
+
+  "order": ["codex", "claude"],
+
+  "agents": {
+    "codex": {
+      "display": "Codex (ChatGPT)",
+      "probe": "python3 probes/codex_probe.py",
+      "settings": {
+        "window_hours": 5,
+        "token_budget": 4000000
+      },
+      "notify_cmd": "osascript -e 'display notification \"Codex 交棒，見 {handoff}\" with title \"relay\"'",
+      "resume_cmd": "codex exec --cd \"$PWD\" \"$(cat {handoff})\""
+    },
+    "claude": {
+      "display": "Claude Code",
+      "probe": "python3 probes/claude_probe.py",
+      "settings": {
+        "window_hours": 5,
+        "token_budget": 8000000
+      },
+      "notify_cmd": "osascript -e 'display notification \"Claude 交棒，見 {handoff}\" with title \"relay\"'",
+      "resume_cmd": "claude -p \"$(cat {handoff})\" --permission-mode acceptEdits"
+    }
+  }
+}

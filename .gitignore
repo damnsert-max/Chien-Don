@@ -2,3 +2,10 @@
 .env
 __pycache__/
 *.pyc
+
+# relay runtime state
+relay/config.json
+relay/status.json
+relay/usage.json
+relay/relay.log
+relay/handoff/
