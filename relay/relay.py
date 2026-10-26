@@ -37,6 +37,17 @@ HANDOFF_DIR = RELAY_DIR / "handoff"
 LOG_PATH = RELAY_DIR / "relay.log"
 
 
+# 狀態與原因只在給人看的地方翻譯；status.json 裡仍是英文 key，方便程式比對。
+STATE_ZH = {
+    core.READY: "待命", core.WORKING: "工作中",
+    core.DRAINING: "用完剩餘額度中", core.BLOCKED: "已達上限",
+}
+
+
+def zh_state(state: str) -> str:
+    return STATE_ZH.get(state, state)
+
+
 def log(message: str) -> None:
     line = "[%s] %s" % (core.iso(core.now()), message)
     print(line, flush=True)
@@ -66,7 +77,8 @@ def blank_status(config: dict) -> dict:
         "holder": None,
         "phase": "idle",
         "task": config.get("task", {"title": "", "goal": "", "repo": "", "branch": ""}),
-        "progress": {"done": [], "next": [], "notes": ""},
+        "progress": config.get("progress", {"done": [], "next": [], "notes": ""}),
+        "exclusive_resources": config.get("exclusive_resources", []),
         "agents": {name: {"state": core.READY, "remaining_pct": None, "reset_at": None}
                    for name in config.get("agents", {})},
         "history": [],
@@ -163,36 +175,55 @@ def write_handoff_note(config: dict, status: dict, sender, receiver, reason: str
     progress = status.get("progress", {})
 
     def bullets(items):
-        return "\n".join("- %s" % item for item in items) or "- (none recorded)"
+        return "\n".join("- %s" % item for item in items) or "- （尚未記錄）"
 
     path.write_text(
-        "# Handoff: %s -> %s\n\n"
-        "- when: %s\n- reason: %s\n- project: %s\n\n"
-        "## Task\n%s\n\n%s\n\n- repo: %s\n- branch: %s\n\n"
-        "## Done\n%s\n\n## Next\n%s\n\n## Notes\n%s\n\n"
-        "## Quota at handoff\n%s\n\n"
-        "## Your job\n"
-        "1. Read `relay/status.json` for live state.\n"
-        "2. Continue from **Next**, smallest verifiable step first.\n"
-        "3. Keep `progress.done` / `progress.next` current -- the relay copies them into the next handoff.\n"
+        "# 交接單：%s → %s\n\n"
+        "- 時間：%s\n- 原因：%s\n- 專案：%s\n\n"
+        "## 任務\n%s\n\n%s\n\n- repo：%s\n- branch：%s\n\n"
+        "## 已完成\n%s\n\n## 待辦\n%s\n\n## 備註\n%s\n\n"
+        "## 交接當下的額度\n%s\n\n"
+        "%s"
+        "## 你要做的事\n"
+        "1. 讀 `relay/status.json` 看即時狀態。\n"
+        "2. 從「待辦」第一項開始，挑最小、可驗證的一步先做。\n"
+        "3. 隨時更新 `progress.done` / `progress.next`，relay 會把它抄進下一張交接單。\n"
         % (
-            sender or "(none)", receiver, core.iso(core.now()), reason,
+            sender or "（無）", receiver, core.iso(core.now()), reason,
             status.get("project", ""),
-            task.get("title", "(untitled)"), task.get("goal", ""),
+            task.get("title", "（未命名）"), task.get("goal", ""),
             task.get("repo", ""), task.get("branch", ""),
             bullets(progress.get("done", [])), bullets(progress.get("next", [])),
-            progress.get("notes", "") or "(none)",
+            progress.get("notes", "") or "（無）",
             "\n".join(
-                "- %s: %s%% (%s)" % (
+                "- %s：%s%%（%s）" % (
                     name,
                     entry.get("remaining_pct"),
-                    entry.get("state"),
+                    zh_state(entry.get("state", "?")),
                 ) for name, entry in status.get("agents", {}).items()
             ),
+            _exclusive_block(status, sender, receiver),
         ),
         encoding="utf-8",
     )
     return path
+
+
+def _exclusive_block(status: dict, sender, receiver) -> str:
+    """Spell out the device handover.
+
+    A shared physical device has exactly one holder; without this line both
+    sides can reach for the same TV the moment the baton moves.
+    """
+    resources = status.get("exclusive_resources") or []
+    if not resources:
+        return ""
+    listing = "\n".join("- %s" % item for item in resources)
+    if sender:
+        rule = "現在只有持棒方 **%s** 可以操作；**%s** 必須先放開才能動。" % (receiver, sender)
+    else:
+        rule = "現在只有持棒方 **%s** 可以操作。" % receiver
+    return "## 獨佔裝置\n%s\n\n%s\n\n" % (listing, rule)
 
 
 def run_hook(config: dict, agent_name: str, key: str, note: Path, dry_run: bool) -> None:
@@ -238,7 +269,7 @@ def tick(config: dict, dry_run: bool = False) -> dict:
     if needs_baton:
         successor = pick_successor(config, status, exclude=holder)
         if successor:
-            reason = ("%s is %s" % (holder, agents[holder]["state"])) if holder else "no holder yet"
+            reason = ("%s %s" % (holder, zh_state(agents[holder]["state"]))) if holder else "尚無持棒方"
             note = write_handoff_note(config, status, holder, successor, reason)
             status["history"].append({
                 "at": core.iso(core.now()), "from": holder, "to": successor,

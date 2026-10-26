@@ -3,16 +3,18 @@
   "handoff_threshold_pct": 2.0,
   "poll_seconds": 60,
   "autostart": false,
-
   "task": {
-    "title": "Netflix 白框移動修復",
-    "goal": "用前鏡頭實拍驗證 B9 上 Netflix 白框：首頁與字幕/集數選單的閃爍與跟框延遲，再回歸略過介紹與長按快轉",
+    "title": "Netflix 白框移動修復（B9 實拍驗證）",
+    "goal": "用前鏡頭實拍驗證 LG B9 上 Netflix 白框的移動行為：先修首頁與字幕／集數選單的閃爍與跟框延遲，再回歸略過介紹與長按快轉",
     "repo": "~/path/to/netflix-project",
-    "branch": "main"
+    "branch": "main",
+    "device": "LG B9",
+    "capture": "前鏡頭實拍（非截圖；白框閃爍在錄影上才看得出來）"
   },
-
-  "order": ["codex", "claude"],
-
+  "order": [
+    "codex",
+    "claude"
+  ],
   "agents": {
     "codex": {
       "display": "Codex (ChatGPT)",
@@ -34,5 +36,20 @@
       "notify_cmd": "osascript -e 'display notification \"Claude 交棒，見 {handoff}\" with title \"relay\"'",
       "resume_cmd": "claude -p \"$(cat {handoff})\" --permission-mode acceptEdits"
     }
+  },
+  "exclusive_resources": [
+    "LG B9"
+  ],
+  "progress": {
+    "done": [],
+    "next": [
+      "首頁：白框跟框延遲",
+      "首頁：白框閃爍",
+      "字幕選單：白框閃爍與跟框延遲",
+      "集數選單：白框閃爍與跟框延遲",
+      "回歸測試：略過介紹",
+      "回歸測試：長按快轉"
+    ],
+    "notes": "B9 同一時間只有持棒方可以操作；交棒前先把遙控器／實拍裝置放開，並在 done 裡記下已驗證的項目。"
   }
 }

@@ -77,6 +77,17 @@ config 裡 `"probe": "curl -s ... | jq ..."` 也可以。
 
 `draining` 狀態的 agent 會收到 `directive`：把當前這一步收尾、寫完交接單再停。
 
+## 獨佔裝置（B9）
+
+`exclusive_resources` 列的東西同一時間只有持棒方能碰：
+
+```json
+"exclusive_resources": ["LG B9"]
+```
+
+每張交接單都會印出這段，寫明誰可以動、誰必須先放開。
+實體電視只有一台，沒有這條規則兩邊會在交棒瞬間同時去搶遙控器。
+
 ## autostart
 
 `"autostart": true` 時，交棒會直接執行接手方的 `resume_cmd`。
